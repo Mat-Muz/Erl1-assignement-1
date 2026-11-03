@@ -10,6 +10,7 @@ from ament_index_python.packages import get_package_share_directory
 def generate_launch_description():
 
     pkg_erl1= get_package_share_directory('erl1')
+    pkg_assignment_1 = get_package_share_directory('assignment_1')
 
     gazebo_models_path, ignore_last_dir = os.path.split(pkg_erl1)
     # lets Gazebo find package://erl1/... (e.g. the meshes)
@@ -145,7 +146,15 @@ def generate_launch_description():
         ]
     )
 
-
+    robot_controller_node = Node(
+        package='assignment_1',
+        executable='robot_controller_node',
+        name='robot_controller_node',
+        output='screen',
+        parameters=[
+            {'use_sim_time': True},
+        ],
+    )
 
     launchDescriptionObject = LaunchDescription()
 
