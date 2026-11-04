@@ -6,6 +6,8 @@ from aruco_opencv_msg.msg import MarkerPose
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import CameraInfo
 from visualization_msgs.msg import Marker, MarkerArray
+from custom_msgs.msg import Box
+from cv_bridge import CvBridge
 import sys
 import math
 
@@ -20,6 +22,8 @@ class RobotController(Node):
         self.marker_info = MarkerPose()
         self.image_info = Image()
         self.marker_array = MarkerArray()
+        self.custom_msg = Box()
+        self.bridge = CvBridge()
 
         # --- 3. DECLARING VARIABLES ---
         self.marker_id = 0.0
@@ -27,13 +31,17 @@ class RobotController(Node):
         self.orientation = 0.0
         self.k_matrix = 0.0
         self.frame_id: str = "camera_color_optical_frame"
+        self.notify = False
         
 
         super().__init__('robot_controller')
 
         self.subscription = self.create_subscription(MarkerPose, 'marker_pose', self.marker_callback, 10)
         self.subscription_image = self.create_subscription(Image, 'camera/image',self.image_callback, 10)
-        self.publisher_msg = self.create_publisher(Custom, 'marker_image', 10)
+        self.subscription_marker_ingo = self.create_subscribtion(Boolean, 'target_reached',self.target_reached_callback, 10)')
+
+        self.publisher_marker = self.create_publisher(Image, 'marker_image', 10)
+        self.publisher_info = self.create_publisher(marker, 'custom_msg', 10)
         self.publisher_marker = self.create_publisher(MarkerArray, 'visualize_marker', 10)
 
         self.timer_ = self.create_timer(0.05, self.timer_callback)
@@ -65,90 +73,44 @@ class RobotController(Node):
         # Log the image information
         self.get_logger().info(f'Recieved intrinsic matrix for raw image')
 
+    def target_reached_callback(self, Boolean):
+        if Boolean.data== True:
+            self.notify = True
+        else:
+            self.notify = False
+
     def timer_callback(self):
 
+        # 3D to 2D projection using the intrinsic camera matrix
         self.x_px = self.k_matrix[0,0]*self.pose.x/self.pose.z + self.k_matrix[0,2]
         self.y_px = self.k_matrix[1,1]*self.pose.y/self.pose.z + self.k_matrix[1,2]
         self.radius = (self.x_px*sqrt(2))/2
         self.z_depth = self.pose.z
         
-        # Create a new message to publish
-        msg = Custom()
-        msg.id = self.marker_id
-        msg.x_px = self.x_px
-        msg.y_px = self.y_px
+        # Info needed for second part of assignment 
+        self.custom_msg.id = self.marker_id
+        self.custom_msg.cy = self.x_px
+        self.custom_msg.cy = self.y_px
+        self.custom_msg.d = self.z_depth
 
-        #Drawing a circle around the marker and displaying the marker id on the image
-        cv2.circle(img, (self.x_px, self.y_px), self.radius, (0, 255, 0), 2)
-        cv2.putText(img,f"id {self.marker_id}",(self.x_px - self.radius, self.y_px - self.radius - 10),cv2.FONT_HERSHEY_SIMPLEX,1.0,(0, 255, 0),3,)
+        self.publisher_msg.publish(self.custom_msg)
+        
+        # Publishing on the marker visualization topic
+        # Ever time the robot is near the marker then we will publish the red circle and the marker id on the image
+        # Will be visualized in rviz2
+        if self.notify:
 
-       
-        stamp = self.get_clock().now().to_msg()
+            #Drawing a circle around the marker and displaying the marker id on the image
+            cv2.circle(img, (self.x_px, self.y_px), self.radius, (0, 0, 255), 2)
+            cv2.putText(img,f"id {self.marker_id}",(self.x_px - self.radius, self.y_px - self.radius - 10),cv2.FONT_HERSHEY_SIMPLEX,1.0,(0, 0, 255),3,)
 
-        sphere = Marker()
-        sphere.header.frame_id = self.frame_id
-        sphere.header.stamp = stamp
-        sphere.ns = "marker_spheres"
-        sphere.id = int(self.marker_id)
-        sphere.type = Marker.SPHERE
-        sphere.action = Marker.ADD
-
-        # Position (meters)
-        sphere.pose.position.x = float(self.pose.x)
-        sphere.pose.position.y = float(self.pose.y)
-        sphere.pose.position.z = float(self.pose.z)
-        sphere.pose.orientation.w = 1.0  # MUST be 1.0 (Unit quaternion)
-
-        # Size in meters (5 cm sphere)
-        sphere.scale.x = 0.05
-        sphere.scale.y = 0.05
-        sphere.scale.z = 0.05
-
-        # Color: Solid Green
-        sphere.color.r = 0.0
-        sphere.color.g = 1.0
-        sphere.color.b = 0.0
-        sphere.color.a = 1.0  # Alpha must be > 0 to be visible
-
-        # Automatically expire marker if not re-detected in 0.5s
-        sphere.lifetime.sec = 0
-        sphere.lifetime.nanosec = 500000000
-
-        # -------------------------------------------------------------
-        # 2. TEXT MARKER (Floating ID Label)
-        # -------------------------------------------------------------
-        text = Marker()
-        text.header.frame_id = self.frame_id
-        text.header.stamp = stamp
-        text.ns = "marker_labels"
-        text.id = int(self.marker_id) + 10000  # Unique ID for array
-        text.type = Marker.TEXT_VIEW_FACING
-        text.action = Marker.ADD
-
-        # In ROS optical frame (X-Right, Y-Down, Z-Forward):
-        # Subtracting from Y moves the text UP in physical space
-        text.pose.position.x = float(self.pose.x)
-        text.pose.position.y = float(self.pose.y) - 0.06  
-        text.pose.position.z = float(self.pose.z) 
-        text.pose.orientation.w = 1.0
-
-        text.text = f"ID: {self.marker_id}"
-        text.scale.z = 0.04  # Text height in meters (4 cm)
-
-        # Color: Solid White
-        text.color.r = 1.0
-        text.color.g = 1.0
-        text.color.b = 1.0
-        text.color.a = 1.0
-        text.lifetime = sphere.lifetime
-
-        # Package and publish
-        marker_array.markers = [sphere, text]
-        self.marker_pub.publish(marker_array)
-
-        # Publish the message
-        self.publisher_msg.publish(msg)
-        self.get_logger().info(f'Published marker info to messages')
+            out_msg = self.bridge.cv2_to_imgmsg(img, encoding='bgr8')
+            out_msg.header.stamp = self.get_clock().now().to_msg()
+            out_msg.header.frame_id = 'camera_link'   
+            
+            # Publish the message
+            self.publisher_marker.publish(out_msg)
+            self.get_logger().info(f'Reached Target and drawn circle')
 
 def main(args=None):
     rclpy.init(args=args)

@@ -148,8 +148,8 @@ def generate_launch_description():
 
     robot_controller_node = Node(
         package='assignment_1',
-        executable='robot_controller_node',
-        name='robot_controller_node',
+        executable='robot_controller',
+        name='robot_controller',
         output='screen',
         parameters=[
             {'use_sim_time': True},

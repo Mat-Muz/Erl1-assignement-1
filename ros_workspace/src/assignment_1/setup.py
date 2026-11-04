@@ -28,7 +28,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'robot_controller_node = assignment_1.marker_display_node:main',
+            'robot_controller = assignment_1.marker_display_node:main',
         ],
     },
 )
