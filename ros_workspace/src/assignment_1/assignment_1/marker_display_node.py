@@ -2,12 +2,13 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 from geometry_msgs.msg import Twist
-from aruco_opencv_msg.msg import MarkerPose
+from aruco_opencv_msgs.msg import MarkerPose
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import CameraInfo
 from visualization_msgs.msg import Marker, MarkerArray
 from custom_msgs.msg import Box
 from cv_bridge import CvBridge
+from std_msgs.msg import Bool
 import sys
 import math
 
@@ -20,10 +21,12 @@ class RobotController(Node):
         # --- 2. DECLARING MESSAGES ---
         # Instead of just declaring, we create the empty object instance here.
         self.marker_info = MarkerPose()
-        self.image_info = Image()
+        self.image_info = CameraInfo()
+        self.raw_image  = Image()
         self.marker_array = MarkerArray()
         self.custom_msg = Box()
         self.bridge = CvBridge()
+
 
         # --- 3. DECLARING VARIABLES ---
         self.marker_id = 0.0
@@ -37,12 +40,11 @@ class RobotController(Node):
         super().__init__('robot_controller')
 
         self.subscription = self.create_subscription(MarkerPose, 'marker_pose', self.marker_callback, 10)
-        self.subscription_image = self.create_subscription(Image, 'camera/image',self.image_callback, 10)
-        self.subscription_marker_ingo = self.create_subscribtion(Boolean, 'target_reached',self.target_reached_callback, 10)')
+        self.subscription_intrinsic = self.create_subscription(CameraInfo, 'camera/camera_info',self.intrinsic_callback, 10)
+        self.subscription_marker_ingo = self.create_subscription(Bool, 'target_reached',self.target_reached_callback, 10)
 
         self.publisher_marker = self.create_publisher(Image, 'marker_image', 10)
-        self.publisher_info = self.create_publisher(marker, 'custom_msg', 10)
-        self.publisher_marker = self.create_publisher(MarkerArray, 'visualize_marker', 10)
+        self.publisher_info = self.create_publisher(Box, 'custom_msg', 10)
 
         self.timer_ = self.create_timer(0.05, self.timer_callback)
         self.get_logger().info('Robot Controller Node has been started.')
@@ -64,20 +66,19 @@ class RobotController(Node):
         self.get_logger().info(f'Marker ID: {self.marker_info.id}, Position: ({self.marker_info.position.x}, {self.marker_info.position.y}, {self.marker_info.position.z}), Orientation: ({self.marker_info.orientation.x}, {self.marker_info.orientation.y}, {self.marker_info.orientation.z}, {self.marker_info.orientation.w})')
 
 
-    def image_callback(self, msg):
-
-        self.image_info = msg
-
-        self.k_matrix = msg.k
-
-        # Log the image information
-        self.get_logger().info(f'Recieved intrinsic matrix for raw image')
 
     def target_reached_callback(self, Boolean):
         if Boolean.data== True:
             self.notify = True
         else:
             self.notify = False
+
+    def intrinsic_callback(self, msg):
+
+        self.image_info = msg
+        self.k_matrix = self.image_info.k
+
+        self.get_logger().info(f'Intrinsic matrix for camera')
 
     def timer_callback(self):
 
