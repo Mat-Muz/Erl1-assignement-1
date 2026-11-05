@@ -3,7 +3,7 @@
     cam_base_topic: camera/image
     output_frame: ''
 
-    marker_dict: DICT_ARUCO_ORIGINAL
+    marker_dict: ARUCO_ORIGINAL
 
     image_is_rectified: false
     image_sub_compressed: false
@@ -13,7 +13,7 @@
       depth: 1
 
     publish_tf: true
-    marker_size: 0.0742
+    marker_size: 0.2
 
     pose_selector:
       # The solver used in Perspective-n-Point (PnP) pose computation used for each marker can

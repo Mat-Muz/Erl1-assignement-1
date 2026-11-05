@@ -11,6 +11,9 @@ def generate_launch_description():
 
     pkg_erl1= get_package_share_directory('erl1')
     pkg_assignment_1 = get_package_share_directory('assignment_1')
+    aruco_pkg = get_package_share_directory('aruco_opencv')
+
+    aruco_launch = os.path.join(aruco_pkg,'config', 'aruco_tracker.yaml')
 
     gazebo_models_path, ignore_last_dir = os.path.split(pkg_erl1)
     # lets Gazebo find package://erl1/... (e.g. the meshes)
@@ -47,6 +50,7 @@ def generate_launch_description():
         'world': LaunchConfiguration('world'),
         }.items()
     )
+
 
     # Launch rviz
     rviz_node = Node(
@@ -156,6 +160,17 @@ def generate_launch_description():
         ],
     )
 
+    aruco_node = Node(
+        package='aruco_opencv',
+        executable='aruco_tracker_autostart',
+        name='aruco_tracker',
+        output='screen',
+        parameters=[
+            aruco_launch,
+            {'use_sim_time': True},
+        ],
+    )
+
     launchDescriptionObject = LaunchDescription()
 
     launchDescriptionObject.add_action(rviz_launch_arg)
@@ -170,5 +185,6 @@ def generate_launch_description():
     launchDescriptionObject.add_action(gz_image_bridge_node)
     launchDescriptionObject.add_action(ekf_node)
     launchDescriptionObject.add_action(robot_controller_node)
+    launchDescriptionObject.add_action(aruco_node)
 
     return launchDescriptionObject
