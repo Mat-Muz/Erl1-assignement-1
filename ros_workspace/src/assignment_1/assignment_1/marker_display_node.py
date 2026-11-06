@@ -9,6 +9,10 @@ from sensor_msgs.msg import CameraInfo
 from custom_msgs.msg import Box
 from cv_bridge import CvBridge
 from std_msgs.msg import Bool
+from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.executors import MultiThreadedExecutor
+from math import sqrt
+import threading
 import sys
 import math
 import cv2
@@ -17,6 +21,7 @@ class RobotController(Node):
    
 
     def __init__(self):
+
 
         # --- 2. DECLARING MESSAGES ---
         # Instead of just declaring, we create the empty object instance here.
@@ -49,13 +54,17 @@ class RobotController(Node):
 
         super().__init__('robot_controller')
 
+        #Multi-threaded executor to handle multiple callbacks simultaneously
+        # self._cb_group = ReentrantCallbackGroup()
+        # self._lock = threading.Lock()
+
         self.subscription = self.create_subscription(ArucoDetection, 'aruco_detections', self.aruco_callback, 10)
         self.subscription_intrinsic = self.create_subscription(CameraInfo, 'camera/camera_info',self.intrinsic_callback, 10)
         self.subscription_marker_ingo = self.create_subscription(Bool, 'target_reached',self.target_reached_callback, 10)
         self.subscription_image = self.create_subscription(Image, 'camera/image',self.image_callback, 10)
 
         self.publisher_marker = self.create_publisher(Image, 'marker_image', 10)
-        self.publisher_info = self.create_publisher(Box, 'custom_msg', 10)
+        self.publisher_msg = self.create_publisher(Box, 'custom_msg', 10)
 
         self.timer_ = self.create_timer(0.05, self.timer_callback)
         self.get_logger().info('Robot Controller Node has been started.')
@@ -98,15 +107,21 @@ class RobotController(Node):
     def timer_callback(self):
 
         self.get_logger().info(f'starting time callback')
+        marker_size = 0.2
+
+       # with self._lock:
+        if getattr(self, 'k_matrix', None) is None or getattr(self, 'z', 0.0) == 0.0:
+            return
+
         self.x_px = self.k_matrix[0,0]*self.x/self.z + self.k_matrix[0,2]
         self.y_px = self.k_matrix[1,1]*self.y/self.z + self.k_matrix[1,2]
-        self.radius = (self.x_px*sqrt(2))/2
+        self.radius = (marker_size*sqrt(2)/2)*self.k_matrix[0,0]/self.z
         self.z_depth = self.z
-        
+    
         # Info needed for second part of assignment 
         self.custom_msg.id = int(self.marker_id)
-        self.custom_msg.cx = int(self.x_px/2)
-        self.custom_msg.cy = int(self.y_px/2)
+        self.custom_msg.cx = int(self.x_px)
+        self.custom_msg.cy = int(self.y_px)
         self.custom_msg.d = int(self.z_depth)
 
         self.publisher_msg.publish(self.custom_msg)
@@ -120,25 +135,26 @@ class RobotController(Node):
         # convert ROS Image message to OpenCV image
         img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
 
+        #with self._lock:
         # Publishing on the marker visualization topic
         # Ever time the robot is near the marker then we will publish the red circle and the marker id on the image
         # Will be visualized in rviz2
-        if self.notify:
-
-            cx = int(self.x_px/2)
-            cy = int(self.y_px/2)
-            r = int(self.radius)
+        marker_cx = int(self.x_px)
+        marker_cy = int(self.y_px)
+        r = int(self.radius)
+                
+        if self.notify:   
             #Drawing a circle around the marker and displaying the marker id on the image
-            cv2.circle(img, (cx, cy), r, (0, 0, 255), 2)
-            cv2.putText(img,f"id {self.marker_id}",(cx - r, cy - r - 10),cv2.FONT_HERSHEY_SIMPLEX,1.0,(0, 0, 255),3,)
+            cv2.circle(img, (marker_cx,marker_cy ), r, (0, 0, 255), 2)
+            cv2.putText(img,f"id {self.marker_id}",(marker_cx - r, marker_cy - r - 10),cv2.FONT_HERSHEY_SIMPLEX,1.0,(0, 0, 255),3,)
 
-            out_msg = self.bridge.cv2_to_imgmsg(img, encoding='bgr8')
-            out_msg.header = msg.header   
+        out_msg = self.bridge.cv2_to_imgmsg(img, encoding='bgr8')
+        out_msg.header = msg.header   
             
-            # Publish the message
-            self.publisher_marker.publish(out_msg)
-            self.get_logger().info(f'Reached Target and drawn circle')
-            return
+        # Publish the message 
+        self.publisher_marker.publish(out_msg)
+        self.get_logger().info(f'Reached Target and drawn circle')
+        
 
     
 
@@ -146,6 +162,10 @@ def main(args=None):
     rclpy.init(args=args)
     robot_controller = RobotController()
     rclpy.spin(robot_controller)
+
+    # executor = MultiThreadedExecutor()
+    # executor.add_node(robot_controller)
+    # executor.spin()
     rclpy.shutdown()
     
 if __name__ == '__main__':
