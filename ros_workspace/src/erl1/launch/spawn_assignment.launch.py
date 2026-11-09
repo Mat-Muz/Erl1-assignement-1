@@ -11,6 +11,8 @@ def generate_launch_description():
 
     pkg_erl1= get_package_share_directory('erl1')
     pkg_assignment_1 = get_package_share_directory('assignment_1')
+    controller_params = os.path.join(pkg_assignment_1, 'config', 'robot_controller.yaml')
+
     aruco_pkg = get_package_share_directory('aruco_opencv')
 
     aruco_launch = os.path.join(aruco_pkg,'config', 'aruco_tracker.yaml')
@@ -156,7 +158,7 @@ def generate_launch_description():
         name='robot_controller',
         output='screen',
         parameters=[
-            {'use_sim_time': True},
+            controller_params,
         ],
     )
 

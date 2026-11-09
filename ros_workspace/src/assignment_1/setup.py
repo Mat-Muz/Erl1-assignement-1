@@ -17,6 +17,7 @@ setup(
         # This tells ROS: "Take all .launch.py files from the 'launch' folder
         # and copy them to the installed share folder."
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
+        (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
         # ----------------------
     ],
     install_requires=['setuptools'],
