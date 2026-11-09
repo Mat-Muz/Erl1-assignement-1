@@ -17,7 +17,7 @@ cd ~/ros2_ws/src
 Clone our group repository directly into the `src` folder (replace the URL with our actual GitHub link):
 
 ```bash
-git clone https://github.com/YourUsername/YourNewRepo.git erl1
+git clone https://github.com/Mat-Muz/Erl1-assignement-1 erl1
 
 ```
 

@@ -124,7 +124,7 @@ def generate_launch_description():
         package="ros_gz_bridge",
         executable="parameter_bridge",
         arguments=[
-            "/clock@rosgraph_msgs/msg/Cloccd k[gz.msgs.Clock",
+            "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
             "/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist",
             "/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry",
             "/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model",
@@ -160,5 +160,15 @@ def generate_launch_description():
     launchDescriptionObject.add_action(gz_bridge_node)
     launchDescriptionObject.add_action(gz_image_bridge_node)
     launchDescriptionObject.add_action(ekf_node)
+
+    #Requirement 3 node :
+    treasure_finder = Node(
+        package="erl1",
+        executable="treasure_finder.py",
+        parameters=[{'use_sim_time': True}]
+    )
+    
+    launchDescriptionObject.add_action(treasure_finder)
+
 
     return launchDescriptionObject
