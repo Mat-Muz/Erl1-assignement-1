@@ -64,7 +64,8 @@ class RobotController(Node):
         self.x = 0.0
         self.y = 0.0
         self.z = 0.0
-        self.first_marker = []     
+        self.first_marker = []  
+        self.has_marker = False   
 
 
         self.subscription = self.create_subscription(ArucoDetection, param('aruco_topic'), self.aruco_callback, 10)
@@ -86,10 +87,15 @@ class RobotController(Node):
         # If no marker detected (notified from a Boolean topic)
         # No marker info
         # No intrinsic matrix received
-        if (self.notify == False) and (len(self.marker_info.markers) == 0) or self.k_matrix is None:
+        if (self.notify == False) or (len(self.marker_info.markers) == 0) or self.k_matrix is None:
+            self.raduis = 0.0
+            self.x_px = 0.0
+            self.y_px = 0.0
+            self.z_depth = 0.0
+            self.has_marker = False
             return
 
-
+        self.has_marker = True
         # If marker detected, then we will extract the information of the first marker in the list
         self.first_marker = self.marker_info.markers[0]
         self.marker_id = self.first_marker.marker_id       
@@ -147,7 +153,7 @@ class RobotController(Node):
         marker_cy = int(self.y_px)
         r = int(self.radius)
                 
-        if self.notify:   
+        if self.notify and self.has_marker:   
             #Drawing a circle around the marker and displaying the marker id on the image
             cv2.circle(img, (marker_cx,marker_cy ), r, (0, 0, 255), 2)
             cv2.putText(img,f"id {self.marker_id}",(marker_cx - r, marker_cy - r - 10),cv2.FONT_HERSHEY_SIMPLEX,1.0,(0, 0, 255),3,)
